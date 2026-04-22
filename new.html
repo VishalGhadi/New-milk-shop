@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>दूध ट्रॅकर</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --p: #f97316; --pd: #ea580c; --pl: #fed7aa;
+  --success: #22c55e; --sbg: #dcfce7;
+  --danger: #ef4444; --dbg: #fee2e2;
+  --text: #1c1917; --muted: #78716c;
+  --card: rgba(255,255,255,0.85);
+  --border: rgba(249,115,22,0.15);
+}
+body {
+  font-family: 'Baloo 2', sans-serif;
+  background: #0f0a00;
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* BG */
+.bg-orbs {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+}
+.orb {
+  position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.35;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.orb1 { width: 400px; height: 400px; background: #f97316; top: -100px; right: -100px; animation-delay: 0s; }
+.orb2 { width: 300px; height: 300px; background: #facc15; bottom: 20%; left: -80px; animation-delay: 3s; }
+.orb3 { width: 250px; height: 250px; background: #fb923c; top: 40%; right: 10%; animation-delay: 5s; }
+@keyframes orbFloat {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-30px) scale(1.05); }
+}
+
+/* PAGES */
+.login-page {
+  position: relative; z-index: 1;
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 2rem;
+}
+.login-logo-wrap {
+  margin-bottom: 1.5rem; text-align: center;
+  animation: fadeDown 0.6s ease both;
+}
+.login-logo { font-size: 5rem; display: block; animation: bounce 2s ease-in-out infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.login-title {
+  font-size: 2.2rem; font-weight: 800;
+  background: linear-gradient(135deg, #f97316, #facc15);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.login-sub { color: rgba(255,255,255,0.6); font-size: 0.88rem; margin-top: 4px; }
+
+.glass-card {
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  padding: 2rem;
+  width: 100%; max-width: 380px;
+  animation: fadeUp 0.5s ease both;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+}
+.glass-card h2 { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 1.5rem; }
+.form-group { margin-bottom: 1.2rem; }
+.form-group label {
+  display: block; font-size: 0.78rem; font-weight: 600;
+  color: rgba(255,255,255,0.5); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.form-group input {
+  width: 100%; padding: 14px 16px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px; font-size: 0.95rem;
+  font-family: 'Baloo 2', sans-serif;
+  color: white; transition: all 0.2s;
+}
+.form-group input::placeholder { color: rgba(255,255,255,0.3); }
+.form-group input:focus { outline: none; border-color: var(--p); background: rgba(249,115,22,0.1); }
+.glow-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white; border: none; border-radius: 14px;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+  font-family: 'Baloo 2', sans-serif;
+  box-shadow: 0 0 30px rgba(249,115,22,0.4);
+  transition: all 0.2s; margin-top: 0.5rem;
+  position: relative; overflow: hidden;
+}
+.glow-btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: translateX(-100%); transition: transform 0.4s;
+}
+.glow-btn:hover::after { transform: translateX(100%); }
+.glow-btn:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(249,115,22,0.6); }
+.login-error {
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+  color: #fca5a5; border-radius: 10px; padding: 10px 14px;
+  font-size: 0.85rem; margin-bottom: 1rem; display: none; text-align: center;
+}
+.login-switch { text-align: center; margin-top: 1.2rem; font-size: 0.85rem; color: rgba(255,255,255,0.4); }
+.login-switch a { color: #fb923c; font-weight: 700; cursor: pointer; }
+
+/* APP */
+.app-page { display: none; position: relative; z-index: 1; min-height: 100vh; }
+
+/* HEADER */
+.header {
+  padding: 1.4rem 1.2rem;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.header-icon { font-size: 1.8rem; animation: bounce 3s ease-in-out infinite; }
+.header-title { font-size: 1.2rem; font-weight: 800; color: white; }
+.header-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.user-pill {
+  background: rgba(249,115,22,0.2); border: 1px solid rgba(249,115,22,0.3);
+  color: #fb923c; padding: 5px 12px; border-radius: 100px;
+  font-size: 0.78rem; font-weight: 700;
+}
+.logout-btn {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 10px;
+  cursor: pointer; font-size: 0.75rem; font-family: 'Baloo 2', sans-serif;
+  transition: all 0.2s;
+}
+.logout-btn:hover { background: rgba(239,68,68,0.2); color: #fca5a5; }
+
+/* TABS */
+.tabs {
+  display: flex; background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 1; min-width: 70px; padding: 14px 8px;
+  text-align: center; font-size: 0.78rem; font-weight: 600;
+  color: rgba(255,255,255,0.4); cursor: pointer; border: none;
+  background: none; font-family: 'Baloo 2', sans-serif;
+  border-bottom: 2px solid transparent; transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab.active { color: #fb923c; border-bottom-color: #f97316; }
+
+/* PAGES */
+.page { display: none; padding: 1.2rem; }
+.page.active { display: block; animation: fadeUp 0.3s ease both; }
+
+/* CARDS */
+.card {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 1.4rem; margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: rgba(249,115,22,0.3); }
+.card-title {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: rgba(255,255,255,0.35); margin-bottom: 1rem;
+}
+
+/* TODAY INFO */
+.today-banner {
+  background: linear-gradient(135deg, rgba(249,115,22,0.25), rgba(234,88,12,0.15));
+  border: 1px solid rgba(249,115,22,0.25);
+  border-radius: 18px; padding: 1.2rem 1.4rem;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+.today-label { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+.today-date { font-size: 1.1rem; font-weight: 700; color: white; }
+.price-chip {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white; font-size: 1rem; font-weight: 800;
+  padding: 8px 18px; border-radius: 100px;
+  box-shadow: 0 0 20px rgba(249,115,22,0.4);
+}
+
+/* MILK BUTTONS */
+.milk-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.2rem; }
+.milk-btn {
+  padding: 1.4rem 1rem; border-radius: 18px; border: 1.5px solid transparent;
+  font-family: 'Baloo 2', sans-serif; font-size: 1rem; font-weight: 700;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  gap: 8px; transition: all 0.25s; position: relative; overflow: hidden;
+}
+.milk-btn .icon { font-size: 2.2rem; transition: transform 0.2s; }
+.milk-btn:hover .icon { transform: scale(1.2); }
+.btn-yes {
+  background: rgba(34,197,94,0.1); color: #86efac;
+  border-color: rgba(34,197,94,0.2);
+}
+.btn-yes.selected {
+  background: linear-gradient(135deg, rgba(34,197,94,0.3), rgba(22,163,74,0.2));
+  border-color: #22c55e; color: #bbf7d0;
+  box-shadow: 0 0 30px rgba(34,197,94,0.3);
+}
+.btn-no {
+  background: rgba(239,68,68,0.1); color: #fca5a5;
+  border-color: rgba(239,68,68,0.2);
+}
+.btn-no.selected {
+  background: linear-gradient(135deg, rgba(239,68,68,0.3), rgba(220,38,38,0.2));
+  border-color: #ef4444; color: #fecaca;
+  box-shadow: 0 0 30px rgba(239,68,68,0.3);
+}
+
+.save-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white; border: none; border-radius: 14px;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+  font-family: 'Baloo 2', sans-serif;
+  box-shadow: 0 0 30px rgba(249,115,22,0.3);
+  transition: all 0.2s;
+}
+.save-btn:hover { box-shadow: 0 0 50px rgba(249,115,22,0.5); transform: translateY(-1px); }
+.save-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* STATS */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+.stat-box {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; padding: 1.1rem; text-align: center;
+  transition: all 0.2s;
+}
+.stat-box:hover { border-color: rgba(249,115,22,0.3); transform: translateY(-2px); }
+.stat-num { font-size: 1.9rem; font-weight: 800; color: #fb923c; line-height: 1; }
+.stat-label { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 5px; }
+
+/* HISTORY */
+.history-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.history-item:last-child { border-bottom: none; }
+.h-date { font-size: 0.88rem; font-weight: 600; color: white; }
+.h-day { font-size: 0.72rem; color: rgba(255,255,255,0.35); }
+.h-badge { font-size: 0.75rem; font-weight: 700; padding: 5px 14px; border-radius: 100px; }
+.h-took { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.2); }
+.h-skip { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
+.h-none { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); }
+
+/* BILL BOX */
+.bill-hero {
+  background: linear-gradient(135deg, #f97316, #dc2626);
+  border-radius: 24px; padding: 2rem; text-align: center; margin-bottom: 1rem;
+  position: relative; overflow: hidden;
+  box-shadow: 0 20px 60px rgba(249,115,22,0.3);
+}
+.bill-hero::before {
+  content: '💰'; position: absolute; font-size: 8rem;
+  right: -20px; bottom: -20px; opacity: 0.15;
+}
+.bill-hero-label { font-size: 0.82rem; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+.bill-amount { font-size: 3.5rem; font-weight: 800; color: white; line-height: 1; }
+.bill-sub { font-size: 0.85rem; color: rgba(255,255,255,0.7); margin-top: 8px; }
+
+/* CALENDAR */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal-day-name { text-align: center; font-size: 0.68rem; color: rgba(255,255,255,0.3); font-weight: 600; padding: 4px 0; }
+.cal-day { aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 500; color: rgba(255,255,255,0.5); transition: transform 0.15s; }
+.cal-day:hover { transform: scale(1.1); }
+.cal-day.took { background: rgba(34,197,94,0.25); color: #86efac; font-weight: 700; }
+.cal-day.skip { background: rgba(239,68,68,0.2); color: #fca5a5; }
+.cal-day.today-cal { box-shadow: 0 0 0 2px #f97316; color: white; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+.cal-nav {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+  color: white; width: 36px; height: 36px; border-radius: 50%;
+  cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+}
+.cal-nav:hover { background: rgba(249,115,22,0.2); }
+.cal-month { font-size: 1rem; font-weight: 700; color: white; }
+
+/* SELECT / INPUT */
+.month-selector {
+  width: 100%; padding: 12px 14px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; font-size: 0.9rem;
+  font-family: 'Baloo 2', sans-serif;
+  color: white; margin-bottom: 1rem;
+}
+.month-selector option { background: #1c1917; color: white; }
+
+.input-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+.input-row input {
+  flex: 1; padding: 12px 14px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; font-size: 0.9rem;
+  font-family: 'Baloo 2', sans-serif; color: white;
+}
+.input-row input::placeholder { color: rgba(255,255,255,0.3); }
+.input-row input:focus { outline: none; border-color: var(--p); }
+.input-row button {
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white; border: none; border-radius: 12px;
+  font-weight: 700; cursor: pointer;
+  font-family: 'Baloo 2', sans-serif;
+  white-space: nowrap;
+}
+
+/* CUSTOMER LIST */
+.customer-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px; margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.customer-item:hover { border-color: rgba(249,115,22,0.25); }
+.customer-name { font-weight: 700; font-size: 0.95rem; color: white; }
+.customer-sub { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+
+/* READONLY */
+.readonly-notice {
+  background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
+  border-radius: 12px; padding: 10px 14px; font-size: 0.82rem;
+  color: #93c5fd; margin-bottom: 1rem; text-align: center;
+}
+
+/* TODAY STATUS (customer) */
+.today-status-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 2.5rem; text-align: center; margin-bottom: 1rem;
+}
+.today-status-icon { font-size: 4rem; margin-bottom: 0.8rem; display: block; animation: bounce 2s ease-in-out infinite; }
+.today-status-text { font-size: 1.2rem; font-weight: 700; color: white; }
+
+.loading { text-align: center; padding: 2rem; color: rgba(255,255,255,0.3); font-size: 0.9rem; }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 2rem; left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: white; padding: 12px 24px; border-radius: 100px;
+  font-size: 0.9rem; font-weight: 600;
+  transition: transform 0.3s ease; z-index: 999; white-space: nowrap;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="bg-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<!-- LOGIN -->
+<div class="login-page" id="loginPage">
+  <div class="login-logo-wrap">
+    <span class="login-logo">🥛</span>
+    <div class="login-title">दूध ट्रॅकर</div>
+    <div class="login-sub">Milk Delivery Tracker</div>
+  </div>
+
+  <div class="glass-card" id="loginCard">
+    <h2>🏪 Shop Owner Login</h2>
+    <div class="login-error" id="loginError"></div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Password टाका" onkeyup="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="glow-btn" onclick="doLogin()">Login करा →</button>
+    <div class="login-switch">Customer आहात? <a onclick="showCustomerLogin()">इथे login करा</a></div>
+  </div>
+
+  <div class="glass-card" id="customerLoginCard" style="display:none">
+    <h2>👤 Customer Login</h2>
+    <div class="login-error" id="customerLoginError"></div>
+    <div class="form-group">
+      <label>तुमचं नाव</label>
+      <input type="text" id="customerLoginName" placeholder="नाव टाका" onkeyup="if(event.key==='Enter') doCustomerLogin()">
+    </div>
+    <button class="glow-btn" onclick="doCustomerLogin()">बघा माझं record →</button>
+    <div class="login-switch">Shop Owner? <a onclick="showOwnerLogin()">इथे login करा</a></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app-page" id="appPage">
+  <div class="header">
+    <div class="header-left">
+      <span class="header-icon">🥛</span>
+      <div>
+        <div class="header-title">दूध ट्रॅकर</div>
+        <div class="header-sub" id="headerDate"></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-pill" id="headerUser"></div>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-today" onclick="showPage('today',this)">📅 आज</button>
+    <button class="tab" id="tab-calendar" onclick="showPage('calendar',this)">🗓️ Calendar</button>
+    <button class="tab" id="tab-bill" onclick="showPage('bill',this)">💰 Bill</button>
+    <button class="tab" id="tab-customers" onclick="showPage('customers',this)">👥 Customers</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="page active" id="page-today">
+    <div class="today-banner">
+      <div>
+        <div class="today-label">आजची तारीख</div>
+        <div class="today-date" id="todayDate"></div>
+      </div>
+      <div class="price-chip" id="priceDisplay">₹34</div>
+    </div>
+
+    <div id="ownerTodaySection">
+      <div class="card">
+        <div class="card-title">Customer निवडा</div>
+        <select id="customerSelect" class="month-selector" style="margin-bottom:0.8rem" onchange="onCustomerChange()"></select>
+        <div class="milk-btns">
+          <button class="milk-btn btn-yes" id="btnYes" onclick="selectMilk('yes')">
+            <span class="icon">✅</span>हो, घेतलं!
+          </button>
+          <button class="milk-btn btn-no" id="btnNo" onclick="selectMilk('no')">
+            <span class="icon">❌</span>नाही घेतलं
+          </button>
+        </div>
+        <button class="save-btn" id="saveBtn" onclick="saveToday()" disabled>Save करा</button>
+      </div>
+    </div>
+
+    <div id="customerTodaySection" style="display:none">
+      <div class="readonly-notice">👁️ Customer view — फक्त बघता येतं</div>
+      <div class="today-status-card">
+        <span class="today-status-icon" id="todayStatusIcon">⏳</span>
+        <div class="today-status-text" id="todayStatusText">आजची नोंद नाही</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-num" id="statTook">0</div><div class="stat-label">दिवस घेतलं 🥛</div></div>
+      <div class="stat-box"><div class="stat-num" id="statSkip">0</div><div class="stat-label">दिवस नाही ❌</div></div>
+      <div class="stat-box"><div class="stat-num" id="statDue" style="color:#4ade80">₹0</div><div class="stat-label">या महिन्याचं bill</div></div>
+      <div class="stat-box"><div class="stat-num" id="statDays">0</div><div class="stat-label">दिवस बाकी</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">मागील 7 दिवस</div>
+      <div id="recentHistory"><div class="loading">लोड होतंय...</div></div>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="page" id="page-calendar">
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeCalMonth(-1)">◀</button>
+        <div class="cal-month" id="calMonthLabel"></div>
+        <button class="cal-nav" onclick="changeCalMonth(1)">▶</button>
+      </div>
+      <div class="cal-grid" id="calDayNames"></div>
+      <div style="margin-top:6px" class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-num" id="calTook">0</div><div class="stat-label">घेतलं 🥛</div></div>
+      <div class="stat-box"><div class="stat-num" id="calSkip">0</div><div class="stat-label">नाही ❌</div></div>
+    </div>
+  </div>
+
+  <!-- BILL -->
+  <div class="page" id="page-bill">
+    <select class="month-selector" id="billMonthSelect" onchange="renderBill()"></select>
+    <div class="bill-hero">
+      <div class="bill-hero-label">एकूण Bill</div>
+      <div class="bill-amount" id="billAmount">₹0</div>
+      <div class="bill-sub" id="billSub">0 दिवस × ₹34</div>
+    </div>
+    <div class="card"><div class="card-title">तपशील</div><div id="billHistory"></div></div>
+  </div>
+
+  <!-- CUSTOMERS -->
+  <div class="page" id="page-customers">
+    <div class="card">
+      <div class="card-title">नवीन Customer जोडा</div>
+      <div class="input-row">
+        <input type="text" id="newCustomerName" placeholder="Customer चं नाव">
+        <button onclick="addCustomer()">+ जोडा</button>
+      </div>
+    </div>
+    <div class="card"><div class="card-title">सर्व Customers</div><div id="customersList"><div class="loading">लोड होतंय...</div></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyBBAV0cg-O98WFkXzcKObpyUTCGHRjPGeA",
+  authDomain: "milk-tracker-f1f1f.firebaseapp.com",
+  projectId: "milk-tracker-f1f1f",
+  storageBucket: "milk-tracker-f1f1f.firebasestorage.app",
+  messagingSenderId: "987049250355",
+  appId: "1:987049250355:web:c0146207cde83c09eadd46"
+});
+const db = firebase.firestore();
+
+const OWNER_PASSWORD = "milk1234";
+let role = null, currentCustomerId = null, selectedMilk = null;
+let price = parseInt(localStorage.getItem('milkPrice') || '34');
+let calViewDate = new Date();
+
+const dayNames = ['रवि','सोम','मंगळ','बुध','गुरु','शुक्र','शनि'];
+const monthNames = ['जानेवारी','फेब्रुवारी','मार्च','एप्रिल','मे','जून','जुलै','ऑगस्ट','सप्टेंबर','ऑक्टोबर','नोव्हेंबर','डिसेंबर'];
+
+function dateKey(d) { return d.toISOString().split('T')[0]; }
+function todayKey() { return dateKey(new Date()); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showOwnerLogin() {
+  document.getElementById('loginCard').style.display = 'block';
+  document.getElementById('customerLoginCard').style.display = 'none';
+}
+function showCustomerLogin() {
+  document.getElementById('loginCard').style.display = 'none';
+  document.getElementById('customerLoginCard').style.display = 'block';
+}
+
+function doLogin() {
+  const pwd = document.getElementById('loginPassword').value;
+  const err = document.getElementById('loginError');
+  if (pwd === OWNER_PASSWORD) {
+    role = 'owner';
+    enterApp('owner', 'Shop Owner', null);
+  } else {
+    err.style.display = 'block';
+    err.textContent = '❌ चुकीचा password!';
+  }
+}
+
+async function doCustomerLogin() {
+  const name = document.getElementById('customerLoginName').value.trim();
+  const err = document.getElementById('customerLoginError');
+  if (!name) { err.style.display = 'block'; err.textContent = '⚠️ नाव टाका!'; return; }
+  try {
+    const snap = await db.collection('customers').where('name','==',name).get();
+    if (snap.empty) {
+      err.style.display = 'block';
+      err.textContent = '❌ हे नाव सापडलं नाही! Shop owner ला सांगा नाव जोडायला.';
+    } else {
+      currentCustomerId = snap.docs[0].id;
+      role = 'customer';
+      enterApp('customer', name, currentCustomerId);
+    }
+  } catch(e) { err.style.display = 'block'; err.textContent = '❌ Error! Internet check करा.'; }
+}
+
+function doLogout() {
+  role = null; currentCustomerId = null; selectedMilk = null;
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('customerLoginName').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('customerLoginError').style.display = 'none';
+  showOwnerLogin();
+}
+
+async function enterApp(r, name, custId) {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'block';
+  const now = new Date();
+  document.getElementById('headerDate').textContent = `${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  document.getElementById('headerUser').textContent = r === 'owner' ? '🏪 Owner' : `👤 ${name}`;
+  document.getElementById('todayDate').textContent = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]}`;
+  document.getElementById('priceDisplay').textContent = '₹' + price;
+  document.getElementById('ownerTodaySection').style.display = r === 'owner' ? 'block' : 'none';
+  document.getElementById('customerTodaySection').style.display = r === 'customer' ? 'block' : 'none';
+  document.getElementById('tab-customers').style.display = r === 'owner' ? 'flex' : 'none';
+  populateMonthSelector();
+  if (r === 'owner') { await loadCustomers(); }
+  else { await loadCustomerToday(); await updateStats(); await renderRecent(); }
+}
+
+async function loadCustomers() {
+  const snap = await db.collection('customers').get();
+  const customers = [];
+  snap.forEach(d => customers.push({ id: d.id, ...d.data() }));
+  const sel = document.getElementById('customerSelect');
+  sel.innerHTML = '<option value="">-- Customer निवडा --</option>';
+  customers.forEach(c => { sel.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
+  if (customers.length > 0) {
+    sel.value = customers[0].id;
+    currentCustomerId = customers[0].id;
+    await checkTodayExists();
+    await updateStats();
+    await renderRecent();
+  }
+}
+
+async function onCustomerChange() {
+  const sel = document.getElementById('customerSelect');
+  currentCustomerId = sel.value || null;
+  selectedMilk = null;
+  document.getElementById('btnYes').classList.remove('selected');
+  document.getElementById('btnNo').classList.remove('selected');
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('saveBtn').textContent = 'Save करा';
+  if (currentCustomerId) await checkTodayExists();
+  await updateStats();
+  await renderRecent();
+}
+
+async function addCustomer() {
+  const name = document.getElementById('newCustomerName').value.trim();
+  if (!name) { showToast('⚠️ नाव टाका!'); return; }
+  try {
+    await db.collection('customers').add({ name, createdAt: new Date().toISOString() });
+    document.getElementById('newCustomerName').value = '';
+    showToast('✅ Customer जोडला!');
+    await loadCustomers();
+    await renderCustomersList();
+  } catch(e) { showToast('❌ Error!'); }
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('हा customer delete करायचा आहे का?')) return;
+  try {
+    await db.collection('customers').doc(id).delete();
+    showToast('🗑️ Delete झाला!');
+    await loadCustomers();
+    await renderCustomersList();
+  } catch(e) { showToast('❌ Error!'); }
+}
+
+async function renderCustomersList() {
+  const el = document.getElementById('customersList');
+  el.innerHTML = '<div class="loading">लोड होतंय...</div>';
+  const snap = await db.collection('customers').get();
+  const list = [];
+  snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+  if (!list.length) { el.innerHTML = '<div class="loading">अजून कोणी नाही!</div>'; return; }
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  el.innerHTML = '';
+  for (const c of list) {
+    const rSnap = await db.collection('milkRecords').where('customerId','==',c.id).get();
+    let took = 0;
+    rSnap.forEach(d => { const r = d.data(); if (r.date.startsWith(ym) && r.took) took++; });
+    el.innerHTML += `<div class="customer-item">
+      <div><div class="customer-name">👤 ${c.name}</div><div class="customer-sub">या महिन्यात ${took} दिवस — ₹${took * price}</div></div>
+      <button onclick="deleteCustomer('${c.id}')" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);padding:7px 14px;border-radius:10px;cursor:pointer;font-family:'Baloo 2',sans-serif;font-weight:700">🗑️</button>
+    </div>`;
+  }
+}
+
+async function checkTodayExists() {
+  if (!currentCustomerId) return;
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).where('date','==',todayKey()).get();
+  if (!snap.empty) {
+    const data = snap.docs[0].data();
+    selectedMilk = data.took ? 'yes' : 'no';
+    updateMilkBtns();
+    document.getElementById('saveBtn').textContent = '✅ आज save झालंय!';
+    document.getElementById('saveBtn').disabled = false;
+  }
+}
+
+async function loadCustomerToday() {
+  if (!currentCustomerId) return;
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).where('date','==',todayKey()).get();
+  const icon = document.getElementById('todayStatusIcon');
+  const text = document.getElementById('todayStatusText');
+  if (!snap.empty) {
+    const data = snap.docs[0].data();
+    if (data.took) { icon.textContent = '✅'; text.textContent = 'आज दूध घेतलं! ₹' + price; }
+    else { icon.textContent = '❌'; text.textContent = 'आज दूध नाही'; }
+  } else { icon.textContent = '⏳'; text.textContent = 'आजची नोंद अजून नाही'; }
+}
+
+function selectMilk(val) {
+  selectedMilk = val;
+  updateMilkBtns();
+  document.getElementById('saveBtn').disabled = false;
+}
+
+function updateMilkBtns() {
+  document.getElementById('btnYes').classList.toggle('selected', selectedMilk === 'yes');
+  document.getElementById('btnNo').classList.toggle('selected', selectedMilk === 'no');
+}
+
+async function saveToday() {
+  if (!selectedMilk || !currentCustomerId) { showToast('⚠️ Customer आणि status निवडा!'); return; }
+  try {
+    const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).where('date','==',todayKey()).get();
+    if (!snap.empty) {
+      await db.collection('milkRecords').doc(snap.docs[0].id).update({ took: selectedMilk === 'yes' });
+    } else {
+      await db.collection('milkRecords').add({ customerId: currentCustomerId, date: todayKey(), took: selectedMilk === 'yes', price });
+    }
+    showToast(selectedMilk === 'yes' ? '✅ दूध घेतलं — save झालं!' : '❌ आज नाही — save झालं!');
+    document.getElementById('saveBtn').textContent = '✅ Save झालं!';
+    await updateStats();
+    await renderRecent();
+  } catch(e) { showToast('❌ Error! Internet check करा.'); }
+}
+
+async function updateStats() {
+  if (!currentCustomerId) return;
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).get();
+  let took = 0, skip = 0;
+  snap.forEach(d => { const r = d.data(); if (r.date.startsWith(ym)) { r.took ? took++ : skip++; } });
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  document.getElementById('statTook').textContent = took;
+  document.getElementById('statSkip').textContent = skip;
+  document.getElementById('statDue').textContent = '₹' + (took * price);
+  document.getElementById('statDays').textContent = daysInMonth - now.getDate();
+}
+
+async function renderRecent() {
+  const el = document.getElementById('recentHistory');
+  if (!currentCustomerId) { el.innerHTML = '<div class="loading">Customer निवडा</div>'; return; }
+  el.innerHTML = '<div class="loading">लोड होतंय...</div>';
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).get();
+  const records = {};
+  snap.forEach(d => { const r = d.data(); records[r.date] = r.took; });
+  let html = '';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = dateKey(d);
+    const v = records[k];
+    const badge = v === true ? `<span class="h-badge h-took">🥛 घेतलं</span>`
+      : v === false ? `<span class="h-badge h-skip">❌ नाही</span>`
+      : `<span class="h-badge h-none">— नाही</span>`;
+    html += `<div class="history-item"><div><div class="h-date">${d.getDate()} ${monthNames[d.getMonth()]} ${k===todayKey()?'<span style="color:#fb923c;font-size:0.7rem">(आज)</span>':''}</div><div class="h-day">${dayNames[d.getDay()]}</div></div>${badge}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function changeCalMonth(dir) { calViewDate.setMonth(calViewDate.getMonth() + dir); renderCalendar(); }
+
+async function renderCalendar() {
+  const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
+  document.getElementById('calMonthLabel').textContent = `${monthNames[m]} ${y}`;
+  document.getElementById('calDayNames').innerHTML = dayNames.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const ym = `${y}-${String(m+1).padStart(2,'0')}`;
+  if (!currentCustomerId) return;
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).get();
+  const records = {};
+  snap.forEach(d => { const r = d.data(); records[r.date] = r.took; });
+  let html = '', took = 0, skip = 0;
+  for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const k = `${ym}-${String(d).padStart(2,'0')}`;
+    const v = records[k];
+    let cls = 'cal-day';
+    if (k === todayKey()) cls += ' today-cal';
+    if (v === true) { cls += ' took'; took++; }
+    else if (v === false) { cls += ' skip'; skip++; }
+    html += `<div class="${cls}">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+  document.getElementById('calTook').textContent = took;
+  document.getElementById('calSkip').textContent = skip;
+}
+
+function populateMonthSelector() {
+  const sel = document.getElementById('billMonthSelect');
+  sel.innerHTML = '';
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    sel.innerHTML += `<option value="${val}">${monthNames[d.getMonth()]} ${d.getFullYear()}</option>`;
+  }
+}
+
+async function renderBill() {
+  const val = document.getElementById('billMonthSelect').value;
+  if (!currentCustomerId) return;
+  const snap = await db.collection('milkRecords').where('customerId','==',currentCustomerId).get();
+  const entries = [];
+  snap.forEach(d => { const r = d.data(); if (r.date.startsWith(val)) entries.push(r); });
+  entries.sort((a,b) => a.date.localeCompare(b.date));
+  const took = entries.filter(r => r.took).length;
+  document.getElementById('billAmount').textContent = '₹' + (took * price);
+  document.getElementById('billSub').textContent = `${took} दिवस × ₹${price}`;
+  const histEl = document.getElementById('billHistory');
+  if (!entries.length) { histEl.innerHTML = '<div class="loading">या महिन्यात नोंद नाही</div>'; return; }
+  histEl.innerHTML = entries.map(r => {
+    const d = new Date(r.date);
+    const badge = r.took ? `<span class="h-badge h-took">🥛 ₹${price}</span>` : `<span class="h-badge h-skip">❌ ₹0</span>`;
+    return `<div class="history-item"><div><div class="h-date">${d.getDate()} ${monthNames[d.getMonth()]}</div><div class="h-day">${dayNames[d.getDay()]}</div></div>${badge}</div>`;
+  }).join('');
+}
+
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  if (name === 'calendar') renderCalendar();
+  if (name === 'bill') renderBill();
+  if (name === 'customers') renderCustomersList();
+}
+</script>
+</body>
+</html>
